@@ -51,7 +51,6 @@ public class GlobalExceptionHandler {
                 "error", errorDetails,
                 "timestamp", Instant.now().toString()
         );
-
         ApiResponse<Map<String, Object>> response = new ApiResponse<>(message, data, false);
         return ResponseEntity.status(status).body(response);
     }
