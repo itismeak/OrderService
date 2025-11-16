@@ -32,6 +32,6 @@ public class OrderItem extends BaseEntity {
     @EqualsAndHashCode.Exclude
     @ManyToOne(fetch = FetchType.LAZY)   // <-- LAZY LOADING
     @JoinColumn(name = "order_id")
-    private Order order;
+    private Orders order;
 
 }

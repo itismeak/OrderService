@@ -1,27 +1,52 @@
 package com.microservice.order_service.module.order.serviceImp;
 
+import com.microservice.order_service.common.client.UserClient;
+import com.microservice.order_service.common.component.OrderMapper;
 import com.microservice.order_service.common.component.OrderNumberGenerator;
 import com.microservice.order_service.common.dto.OrderRequestDto;
 import com.microservice.order_service.common.dto.OrderViewDto;
+import com.microservice.order_service.common.dto.UserDto;
 import com.microservice.order_service.common.enums.OrderStatus;
-import com.microservice.order_service.module.order.entity.Order;
+import com.microservice.order_service.module.order.entity.OrderItem;
+import com.microservice.order_service.module.order.entity.Orders;
 import com.microservice.order_service.module.order.repository.OrderRepository;
 import com.microservice.order_service.module.order.service.OrderService;
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImp implements OrderService {
     private final OrderRepository orderRepository;
-    private OrderNumberGenerator orderNumberGenerator;
+    private final OrderNumberGenerator orderNumberGenerator;
+    private final OrderMapper orderMapper;
+    private final UserClient userClient;
+
     @Override
     public OrderViewDto saveOrder(OrderRequestDto dto) {
-        log.info("🟢 [ORDER-CREATE] Request received for userId={}", dto.getUserId());
-        Order order=new Order();
+        log.info("🟢 [ORDER-CREATE] Request received for userId={} | items={}",
+                dto.getUserId(), dto.getItems().size());
+        // create order entity
+        Orders order=new Orders();
+        order.setUserId(dto.getUserId());
+        order.setOrderCode(orderNumberGenerator.generateOrderNumber());
+        order.setStatus(OrderStatus.PLACED);
+
+        List<OrderItem> items = new ArrayList<>();
+        BigDecimal totalAmount = BigDecimal.ZERO;
+
+        // process each item
         return null;
     }
 
@@ -32,11 +57,84 @@ public class OrderServiceImp implements OrderService {
 
     @Override
     public OrderViewDto getOrderById(Long orderId) {
-        return null;
+        log.info("Fetching order details for orderId={}", orderId);
+
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> {
+                    log.warn("Order not found: {}", orderId);
+                    return new RuntimeException("Order not found");
+                });
+
+        OrderViewDto res = orderMapper.toOrderViewDto(order);
+        // Fetch user info from user-service
+        log.info("Fetching user data for userId={}", order.getUserId());
+        UserDto user = userClient.getUserById(order.getUserId());
+        res.setUser(user);
+        return res;
     }
 
     @Override
     public Page<OrderViewDto> getAll(String productName, OrderStatus status, int page, int size) {
-        return null;
+
+        log.info("🟢 [ORDER-GET-ALL] Fetching orders: productName={}, status={}, page={}, size={}",
+                productName, status, page, size);
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<Orders> orders = getOrders(productName, status, pageable);
+
+        Page<OrderViewDto> dtoPage = orders.map(order -> {
+            OrderViewDto dto = orderMapper.toOrderViewDto(order);
+
+            UserDto userDto = fetchUserSafely(order.getUserId());
+            dto.setUser(userDto);   // can be null
+
+            return dto;
+        });
+
+        log.info("🟢 [ORDER-GET-ALL] Returning {} records", dtoPage.getNumberOfElements());
+        return dtoPage;
     }
+
+    private Page<Orders> getOrders(String productName, OrderStatus status, Pageable pageable) {
+
+        boolean hasProduct = productName != null && !productName.isBlank();
+        boolean hasStatus = status != null;
+
+        if (hasProduct && hasStatus) {
+            return orderRepository.searchByProductNameAndStatus(productName, status, pageable);
+        }
+
+        if (hasProduct) {
+            return orderRepository.searchByProductName(productName, pageable);
+        }
+
+        if (hasStatus) {
+            return orderRepository.findByStatus(status, pageable);
+        }
+
+        return orderRepository.findAll(pageable);
+    }
+    private UserDto fetchUserSafely(Long userId) {
+        try {
+            log.info("🟢 [ORDER→USER-SERVICE] Fetching userId={}", userId);
+            return userClient.getUserById(userId);
+
+        } catch (FeignException.NotFound ex) {
+            log.warn("⚠️ [USER-NOT-FOUND] userId={} does not exist", userId);
+            return null; // user deleted or invalid ID
+
+        } catch (FeignException.ServiceUnavailable | FeignException.InternalServerError ex) {
+            log.error("❌ [USER-SERVICE-DOWN] User service unavailable for userId={}", userId);
+            return null;
+
+        } catch (FeignException ex) {
+            log.error("❌ [FEIGN-ERROR] Failed to fetch userId={}, msg={}", userId, ex.getMessage());
+            return null;
+
+        } catch (Exception ex) {
+            log.error("❌ [UNKNOWN-ERROR] Unexpected error while fetching userId={}", userId, ex);
+            return null;
+        }
+    }
+
 }

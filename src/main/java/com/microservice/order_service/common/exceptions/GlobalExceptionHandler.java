@@ -1,6 +1,10 @@
 package com.microservice.order_service.common.exceptions;
 
 import com.microservice.order_service.common.dto.ApiResponse;
+import feign.FeignException;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,48 +20,108 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // 1️⃣ Validation errors
+    // 1️⃣ Handle @Valid validation errors
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<?>> handleValidationException(MethodArgumentNotValidException ex) {
+
         Map<String, String> errors = new HashMap<>();
         ex.getBindingResult().getFieldErrors()
-                .forEach(error -> errors.put(error.getField(), error.getDefaultMessage()));
+                .forEach(error ->
+                        errors.put(error.getField(), error.getDefaultMessage())
+                );
 
-        return buildResponse("Validation failed", errors, HttpStatus.BAD_REQUEST);
+        log.warn("Validation failed: {}", errors);
+
+        return buildResponse(
+                "Validation failed",
+                errors,
+                HttpStatus.BAD_REQUEST
+        );
     }
 
-    // 2️⃣ Runtime exceptions
+    // 2️⃣ Handle business logic errors safely
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ApiResponse<?>> handleRuntimeException(RuntimeException ex) {
         log.warn("Runtime exception: {}", ex.getMessage());
-        String cleanMessage = cleanExceptionMessage(ex.getMessage());
 
-        return buildResponse("Something went wrong", cleanMessage, HttpStatus.BAD_REQUEST);
+        return buildResponse(
+                "Something went wrong",
+                safeMessage(ex.getMessage()),
+                HttpStatus.BAD_REQUEST
+        );
     }
 
-    // 3️⃣ Fallback for all other exceptions
+    // 3️⃣ Handle Feign client errors (User/Product service failures)
+    @ExceptionHandler(FeignException.class)
+    public ResponseEntity<ApiResponse<?>> handleFeignException(FeignException ex) {
+
+        log.error("Feign client error: status={}, msg={}", ex.status(), ex.getMessage());
+
+        String cleaned = extractFeignMessage(ex);
+
+        HttpStatus status = ex.status() > 0 ?
+                HttpStatus.valueOf(ex.status()) :
+                HttpStatus.SERVICE_UNAVAILABLE;
+
+        return buildResponse(
+                "External service communication failed",
+                cleaned,
+                status
+        );
+    }
+
+    // 4️⃣ Catch-all handler for unknown exceptions
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<?>> handleGlobalException(Exception ex) {
-        log.error("Unhandled exception: {}", ex.getMessage(), ex);
-        String cleanMessage = cleanExceptionMessage(ex.getMessage());
+        log.error("Unhandled exception occurred: {}", ex.getMessage(), ex);
 
-        return buildResponse("Internal server error", cleanMessage, HttpStatus.INTERNAL_SERVER_ERROR);
+        return buildResponse(
+                "Internal server error",
+                safeMessage(ex.getMessage()),
+                HttpStatus.INTERNAL_SERVER_ERROR
+        );
     }
 
-    // 🔹 Reusable method to build ApiResponse
-    private ResponseEntity<ApiResponse<?>> buildResponse(String message, Object errorDetails, HttpStatus status) {
-        Map<String, Object> data = Map.of(
-                "status", status.value(),
-                "error", errorDetails,
-                "timestamp", Instant.now().toString()
+    // 🔹 Utility: API Response builder
+    private ResponseEntity<ApiResponse<?>> buildResponse(String message, Object error, HttpStatus status) {
+
+        ErrorDetail detail = new ErrorDetail(
+                Instant.now().toString(),
+                status.value(),
+                error
         );
-        ApiResponse<Map<String, Object>> response = new ApiResponse<>(message, data, false);
+
+        ApiResponse<ErrorDetail> response = new ApiResponse<>(
+                message,
+                detail,
+                false
+        );
+
         return ResponseEntity.status(status).body(response);
     }
 
-    // 🔹 Optional: clean exception messages
-    private String cleanExceptionMessage(String message) {
-        if (message == null) return "Unexpected error occurred";
-        return message.replaceAll("^\\d{3}\\s[A-Z]+\\s*\"?|\"?$", "").trim();
+    // 🔹 Clean internal exception messages
+    private String safeMessage(String msg) {
+        if (msg == null) return "Unexpected error occurred";
+        return msg.replaceAll("[\"]", "").trim();
+    }
+
+    // 🔹 Extract Feign clean message
+    private String extractFeignMessage(FeignException ex) {
+        String msg = ex.contentUTF8();
+        if (msg == null || msg.isEmpty()) {
+            return "External service unavailable";
+        }
+        return msg.replaceAll("\"", "").trim();
+    }
+
+    // 🔹 Response payload for errors
+    @Getter
+    @Setter
+    @AllArgsConstructor
+    static class ErrorDetail {
+        private String timestamp;
+        private int status;
+        private Object error;
     }
 }
