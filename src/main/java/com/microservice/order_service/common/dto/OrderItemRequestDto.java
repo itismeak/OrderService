@@ -2,8 +2,12 @@ package com.microservice.order_service.common.dto;
 
 import jakarta.validation.constraints.*;
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 @Data
+@Getter
+@Setter
 public class OrderItemRequestDto {
 
     @NotNull(message = "Product ID is required")

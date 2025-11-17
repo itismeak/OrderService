@@ -5,7 +5,7 @@ import com.microservice.order_service.common.enums.UserStatus;
 import lombok.Data;
 
 @Data
-public class UserDto {
+public class UserViewDto {
     private Long id;
     private String name;
     private String email;

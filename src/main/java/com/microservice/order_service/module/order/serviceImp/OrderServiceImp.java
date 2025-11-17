@@ -1,12 +1,12 @@
 package com.microservice.order_service.module.order.serviceImp;
 
+import com.microservice.order_service.common.client.ProductClient;
 import com.microservice.order_service.common.client.UserClient;
 import com.microservice.order_service.common.component.OrderMapper;
 import com.microservice.order_service.common.component.OrderNumberGenerator;
-import com.microservice.order_service.common.dto.OrderRequestDto;
-import com.microservice.order_service.common.dto.OrderViewDto;
-import com.microservice.order_service.common.dto.UserDto;
+import com.microservice.order_service.common.dto.*;
 import com.microservice.order_service.common.enums.OrderStatus;
+import com.microservice.order_service.common.exceptions.ProductNotFoundException;
 import com.microservice.order_service.module.order.entity.OrderItem;
 import com.microservice.order_service.module.order.entity.Orders;
 import com.microservice.order_service.module.order.repository.OrderRepository;
@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -32,23 +33,52 @@ public class OrderServiceImp implements OrderService {
     private final OrderNumberGenerator orderNumberGenerator;
     private final OrderMapper orderMapper;
     private final UserClient userClient;
+    private final ProductClient productClient;
 
     @Override
     public OrderViewDto saveOrder(OrderRequestDto dto) {
         log.info("🟢 [ORDER-CREATE] Request received for userId={} | items={}",
                 dto.getUserId(), dto.getItems().size());
-        // create order entity
-        Orders order=new Orders();
-        order.setUserId(dto.getUserId());
-        order.setOrderCode(orderNumberGenerator.generateOrderNumber());
-        order.setStatus(OrderStatus.PLACED);
 
-        List<OrderItem> items = new ArrayList<>();
-        BigDecimal totalAmount = BigDecimal.ZERO;
+        //User validations
+        UserViewDto user=userClient.getUserById(dto.getUserId());
+        if (user == null) {
+            log.error("❌ [ORDER-CREATE] User not found with ID={}", dto.getUserId());
+            throw new RuntimeException("User not registered in the app");
+        }
+        log.info("👤 [ORDER-CREATE] User found: {}", user.getEmail());
+
+        //Products validations
+        List<ProductViewDto> products=validateAndFetchProducts(dto.getItems());
 
         // process each item
         return null;
     }
+
+    private List<ProductViewDto> validateAndFetchProducts(List<OrderItemRequestDto> items) {
+
+        List<ProductViewDto> products = items.stream()
+                .map(item -> {
+                    try {
+                        return productClient.getProduct(item.getProductId());
+                    } catch (FeignException.NotFound e) {
+                        // convert 404 to domain exception
+                        throw new ProductNotFoundException(
+                                String.format("Product %s not found",item.getProductName())
+                        );
+                    } catch (FeignException e) {
+                        // other Feign errors
+                        throw new RuntimeException(
+                                "Product service error for item  " + item.getProductName()
+                        );
+                    }
+                })
+                .collect(Collectors.toList());
+
+        return products;
+    }
+
+
 
     @Override
     public OrderViewDto updatedOrder(Long orderId, OrderRequestDto dto) {
@@ -68,7 +98,7 @@ public class OrderServiceImp implements OrderService {
         OrderViewDto res = orderMapper.toOrderViewDto(order);
         // Fetch user info from user-service
         log.info("Fetching user data for userId={}", order.getUserId());
-        UserDto user = userClient.getUserById(order.getUserId());
+        UserViewDto user = userClient.getUserById(order.getUserId());
         res.setUser(user);
         return res;
     }
@@ -85,7 +115,7 @@ public class OrderServiceImp implements OrderService {
         Page<OrderViewDto> dtoPage = orders.map(order -> {
             OrderViewDto dto = orderMapper.toOrderViewDto(order);
 
-            UserDto userDto = fetchUserSafely(order.getUserId());
+            UserViewDto userDto = fetchUserSafely(order.getUserId());
             dto.setUser(userDto);   // can be null
 
             return dto;
@@ -114,7 +144,7 @@ public class OrderServiceImp implements OrderService {
 
         return orderRepository.findAll(pageable);
     }
-    private UserDto fetchUserSafely(Long userId) {
+    private UserViewDto fetchUserSafely(Long userId) {
         try {
             log.info("🟢 [ORDER→USER-SERVICE] Fetching userId={}", userId);
             return userClient.getUserById(userId);

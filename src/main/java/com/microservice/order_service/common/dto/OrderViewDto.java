@@ -10,7 +10,7 @@ import java.util.List;
 public class OrderViewDto {
     private Long id;
     private String orderCode;
-    private UserDto user;
+    private UserViewDto user;
     private BigDecimal totalAmount;
     private OrderStatus status;
     private List<OrderItemViewDto> items;
