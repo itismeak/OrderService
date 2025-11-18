@@ -5,13 +5,15 @@ import com.microservice.order_service.common.client.UserClient;
 import com.microservice.order_service.common.component.OrderMapper;
 import com.microservice.order_service.common.component.OrderNumberGenerator;
 import com.microservice.order_service.common.dto.*;
+import com.microservice.order_service.common.enums.OrderItemStatus;
 import com.microservice.order_service.common.enums.OrderStatus;
-import com.microservice.order_service.common.exceptions.ProductNotFoundException;
+import com.microservice.order_service.common.exceptions.ResourceNotFoundException;
 import com.microservice.order_service.module.order.entity.OrderItem;
 import com.microservice.order_service.module.order.entity.Orders;
 import com.microservice.order_service.module.order.repository.OrderRepository;
 import com.microservice.order_service.module.order.service.OrderService;
 import feign.FeignException;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -22,6 +24,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -36,6 +39,7 @@ public class OrderServiceImp implements OrderService {
     private final ProductClient productClient;
 
     @Override
+    @Transactional
     public OrderViewDto saveOrder(OrderRequestDto dto) {
         log.info("🟢 [ORDER-CREATE] Request received for userId={} | items={}",
                 dto.getUserId(), dto.getItems().size());
@@ -44,40 +48,49 @@ public class OrderServiceImp implements OrderService {
         UserViewDto user=userClient.getUserById(dto.getUserId());
         if (user == null) {
             log.error("❌ [ORDER-CREATE] User not found with ID={}", dto.getUserId());
-            throw new RuntimeException("User not registered in the app");
+            throw new ResourceNotFoundException("User not registered in the app");
         }
         log.info("👤 [ORDER-CREATE] User found: {}", user.getEmail());
 
-        //Products validations
-        List<ProductViewDto> products=validateAndFetchProducts(dto.getItems());
+        //Products validations and create order items
+        List<OrderItem> orderItems=orderItemsCreate(dto.getItems());
+        BigDecimal totalOrderAmount= orderItems.stream()
+                .map(OrderItem::getLineTotal)
+                .reduce(BigDecimal.ZERO,BigDecimal::add);
+        Orders order=new Orders();
+        order.setOrderCode(orderNumberGenerator.generateOrderNumber());
+        order.setUserId(user.getId());
+        order.setStatus(OrderStatus.PLACED);
+        order.setTotalAmount(totalOrderAmount);
+        order.setItems(orderItems);
 
-        // process each item
-        return null;
+        Orders placeOrder=orderRepository.save(order);
+        return orderMapper.toOrderViewDto(placeOrder);
     }
-
-    private List<ProductViewDto> validateAndFetchProducts(List<OrderItemRequestDto> items) {
-
-        List<ProductViewDto> products = items.stream()
-                .map(item -> {
-                    try {
-                        return productClient.getProduct(item.getProductId());
-                    } catch (FeignException.NotFound e) {
-                        // convert 404 to domain exception
-                        throw new ProductNotFoundException(
-                                String.format("Product %s not found",item.getProductName())
-                        );
-                    } catch (FeignException e) {
-                        // other Feign errors
-                        throw new RuntimeException(
-                                "Product service error for item  " + item.getProductName()
-                        );
+    private List<OrderItem> orderItemsCreate(List<OrderItemRequestDto> otRequest){
+        List<OrderItem> orderItems=otRequest.stream()
+                .map((item)->{
+                    ProductViewDto existProduct= productClient.getProduct(item.getProductId());
+                    if(existProduct == null){
+                        throw new ResourceNotFoundException(
+                                String.format("Product %s not found!",item.getProductName()));
                     }
+                    OrderItem orderItem=new OrderItem();
+                    orderItem.setProductId(existProduct.getId());
+                    orderItem.setProductName(existProduct.getName());
+                    orderItem.setQuantity(item.getQuantity());
+                    orderItem.setProductPrice(existProduct.getPrice());
+
+                    BigDecimal price=new BigDecimal(existProduct.getPrice().toString());
+                    BigDecimal totalPrice=price.multiply(new BigDecimal(item.getQuantity()));
+                    orderItem.setLineTotal(totalPrice);
+
+                    orderItem.setStatus(OrderItemStatus.ACTIVE);
+                    return orderItem;
                 })
-                .collect(Collectors.toList());
-
-        return products;
+                .toList();
+        return orderItems;
     }
-
 
 
     @Override
@@ -104,25 +117,33 @@ public class OrderServiceImp implements OrderService {
     }
 
     @Override
-    public Page<OrderViewDto> getAll(String productName, OrderStatus status, int page, int size) {
+    public Page<OrderViewDto> getAll(String productName, OrderStatus status, int page, int size, String sortBy, String sortDir) {
 
-        log.info("🟢 [ORDER-GET-ALL] Fetching orders: productName={}, status={}, page={}, size={}",
-                productName, status, page, size);
+        log.info("🟢 [ORDER-GET-ALL] productName={}, status={}, page={}, size={}, sortBy={}, sortDir={}",
+                productName, status, page, size, sortBy, sortDir);
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Sort.Direction direction =
+                "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+
+        // If sortBy not in entity fields → fallback to default createdAt
+        if (!isValidSortField(sortBy)) {
+            log.warn("⚠️ Invalid sortBy='{}'. Falling back to createdAt", sortBy);
+            sortBy = "createdAt";
+        }
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+
         Page<Orders> orders = getOrders(productName, status, pageable);
 
-        Page<OrderViewDto> dtoPage = orders.map(order -> {
+        return orders.map(order -> {
             OrderViewDto dto = orderMapper.toOrderViewDto(order);
-
-            UserViewDto userDto = fetchUserSafely(order.getUserId());
-            dto.setUser(userDto);   // can be null
-
+            dto.setUser(fetchUserSafely(order.getUserId()));
             return dto;
         });
-
-        log.info("🟢 [ORDER-GET-ALL] Returning {} records", dtoPage.getNumberOfElements());
-        return dtoPage;
+    }
+    private boolean isValidSortField(String field) {
+        return Arrays.stream(Orders.class.getDeclaredFields())
+                .anyMatch(f -> f.getName().equals(field));
     }
 
     private Page<Orders> getOrders(String productName, OrderStatus status, Pageable pageable) {

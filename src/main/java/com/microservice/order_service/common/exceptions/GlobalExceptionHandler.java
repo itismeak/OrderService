@@ -1,6 +1,7 @@
 package com.microservice.order_service.common.exceptions;
 
 import com.microservice.order_service.common.dto.ApiResponse;
+import com.microservice.order_service.common.dto.ErrorDetail;
 import feign.FeignException;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -82,6 +83,19 @@ public class GlobalExceptionHandler {
         );
     }
 
+    // 5️⃣ Handle ResourceNotFoundException (Resource not found)
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ApiResponse<?>> handleResourceNotFoundException(ResourceNotFoundException ex) {
+        log.warn("Resource not found: {}", ex.getMessage());
+
+        return buildResponse(
+                "Resource not found",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND
+        );
+    }
+
+
     // 🔹 Utility: API Response builder
     private ResponseEntity<ApiResponse<?>> buildResponse(String message, Object error, HttpStatus status) {
 
@@ -113,15 +127,5 @@ public class GlobalExceptionHandler {
             return "External service unavailable";
         }
         return msg.replaceAll("\"", "").trim();
-    }
-
-    // 🔹 Response payload for errors
-    @Getter
-    @Setter
-    @AllArgsConstructor
-    static class ErrorDetail {
-        private String timestamp;
-        private int status;
-        private Object error;
     }
 }

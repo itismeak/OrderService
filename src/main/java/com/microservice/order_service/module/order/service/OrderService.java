@@ -9,5 +9,11 @@ public interface OrderService {
     OrderViewDto saveOrder(OrderRequestDto dto);
     OrderViewDto updatedOrder(Long orderId,OrderRequestDto dto);
     OrderViewDto getOrderById(Long orderId);
-    Page<OrderViewDto> getAll(String productName, OrderStatus status, int page, int size);
-}
+    public Page<OrderViewDto> getAll(String productName,
+                                     OrderStatus status,
+                                     int page,
+                                     int size,
+                                     String sortBy,
+                                     String sortDir);
+
+    }

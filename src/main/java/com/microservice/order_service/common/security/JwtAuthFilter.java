@@ -3,6 +3,7 @@ package com.microservice.order_service.common.security;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microservice.order_service.common.constants.AppConstant;
 import com.microservice.order_service.common.dto.ApiResponse;
+import com.microservice.order_service.common.dto.ErrorDetail;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -111,13 +112,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         response.setStatus(status);
         response.setContentType("application/json");
 
-        ApiResponse<Map<String, Object>> apiResponse = new ApiResponse<>(
-                message,
-                Map.of(
-                        "timestamp", Instant.now().toString(),
-                        "status", status,
-                        "error", HttpStatus.valueOf(status).getReasonPhrase()
-                ),
+        ErrorDetail payload = new ErrorDetail(
+                Instant.now().toString(),
+                status,
+                message
+        );
+
+        ApiResponse<ErrorDetail> apiResponse = new ApiResponse<>(
+                "Authentication failed",
+                payload,
                 false
         );
 

@@ -1,9 +1,6 @@
 package com.microservice.order_service.common.component;
 
-import com.microservice.order_service.common.dto.OrderItemRequestDto;
-import com.microservice.order_service.common.dto.OrderItemViewDto;
-import com.microservice.order_service.common.dto.OrderRequestDto;
-import com.microservice.order_service.common.dto.OrderViewDto;
+import com.microservice.order_service.common.dto.*;
 import com.microservice.order_service.module.order.entity.OrderItem;
 import com.microservice.order_service.module.order.entity.Orders;
 import lombok.extern.slf4j.Slf4j;
@@ -84,4 +81,13 @@ public class OrderMapper {
 
         return dto;
     }
+
+//    public OrderItem toOrderItem(ProductViewDto productViewDto,OrderItemRequestDto requestDto){
+//        OrderItem orderItem=new OrderItem();
+//        orderItem.setProductId(productViewDto.getId());
+//        orderItem.setProductName(productViewDto.getName());
+//        orderItem.setProductPrice(productViewDto.getPrice());
+//        orderItem.setQuantity(requestDto.getQuantity());
+//        return orderItem;
+//    }
 }

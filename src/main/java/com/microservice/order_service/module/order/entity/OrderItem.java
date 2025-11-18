@@ -1,6 +1,7 @@
 package com.microservice.order_service.module.order.entity;
 
 import com.microservice.order_service.common.entity.BaseEntity;
+import com.microservice.order_service.common.enums.OrderItemStatus;
 import jakarta.persistence.*;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -27,11 +28,12 @@ public class OrderItem extends BaseEntity {
     private Integer quantity;
     @Column(nullable = false)
     private BigDecimal lineTotal;
-
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private OrderItemStatus status = OrderItemStatus.ACTIVE;
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     @ManyToOne(fetch = FetchType.LAZY)   // <-- LAZY LOADING
     @JoinColumn(name = "order_id")
     private Orders order;
-
 }

@@ -1,5 +1,6 @@
 package com.microservice.order_service.common.dto;
 
+import com.microservice.order_service.common.enums.OrderItemStatus;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -12,4 +13,5 @@ public class OrderItemViewDto {
     private BigDecimal productPrice;
     private Integer quantity;
     private BigDecimal lineTotal;
+    private OrderItemStatus status;
 }

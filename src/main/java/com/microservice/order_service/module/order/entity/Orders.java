@@ -22,8 +22,9 @@ public class Orders extends BaseEntity {
   @Column(nullable = false)
   private Long userId;
   private BigDecimal totalAmount;
+  @Column(nullable = false)
   @Enumerated(EnumType.STRING)
-  private OrderStatus status;
+  private OrderStatus status = OrderStatus.PENDING; // default PENDING;
 
     @OneToMany(
             mappedBy = "order",
