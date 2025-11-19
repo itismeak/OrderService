@@ -5,6 +5,7 @@ import com.microservice.order_service.common.enums.ProductStatus;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 @Data
 public class ProductViewDto {
@@ -13,6 +14,10 @@ public class ProductViewDto {
     private String description;
     private Integer quantity;
     private BigDecimal price;
-    private ProductStatus status; // optional enum
+    private ProductStatus status;
     private ProductCategory category;
+    private Instant createdAt;
+    private Instant updatedAt;
+    private String createdBy;
+    private String updatedBy;
 }

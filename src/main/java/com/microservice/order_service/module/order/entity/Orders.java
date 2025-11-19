@@ -24,7 +24,7 @@ public class Orders extends BaseEntity {
   private BigDecimal totalAmount;
   @Column(nullable = false)
   @Enumerated(EnumType.STRING)
-  private OrderStatus status = OrderStatus.PENDING; // default PENDING;
+  private OrderStatus status = OrderStatus.Pending; // default PENDING;
 
     @OneToMany(
             mappedBy = "order",

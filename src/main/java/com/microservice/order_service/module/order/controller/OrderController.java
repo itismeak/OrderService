@@ -10,6 +10,7 @@ import com.microservice.order_service.module.order.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.coyote.BadRequestException;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,7 +25,7 @@ public class OrderController {
     private final OrderService orderService;
 
     @PostMapping("/placeOrder")
-    public ResponseEntity<ApiResponse<OrderViewDto>> placeOrder(@RequestBody @Valid OrderRequestDto requestDto){
+    public ResponseEntity<ApiResponse<OrderViewDto>> placeOrder(@RequestBody @Valid OrderRequestDto requestDto) throws BadRequestException {
         log.info("Api Call: Order place request received : {}",requestDto.toString());
         OrderViewDto result=orderService.saveOrder(requestDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(new ApiResponse<>(

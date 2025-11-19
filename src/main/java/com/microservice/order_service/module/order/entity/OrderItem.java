@@ -30,7 +30,7 @@ public class OrderItem extends BaseEntity {
     private BigDecimal lineTotal;
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
-    private OrderItemStatus status = OrderItemStatus.ACTIVE;
+    private OrderItemStatus status = OrderItemStatus.Active;
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     @ManyToOne(fetch = FetchType.LAZY)   // <-- LAZY LOADING

@@ -7,6 +7,9 @@ import com.microservice.order_service.common.component.OrderNumberGenerator;
 import com.microservice.order_service.common.dto.*;
 import com.microservice.order_service.common.enums.OrderItemStatus;
 import com.microservice.order_service.common.enums.OrderStatus;
+import com.microservice.order_service.common.enums.ProductStatus;
+import com.microservice.order_service.common.enums.UserStatus;
+import com.microservice.order_service.common.exceptions.BadRequestException;
 import com.microservice.order_service.common.exceptions.ResourceNotFoundException;
 import com.microservice.order_service.module.order.entity.OrderItem;
 import com.microservice.order_service.module.order.entity.Orders;
@@ -45,53 +48,85 @@ public class OrderServiceImp implements OrderService {
                 dto.getUserId(), dto.getItems().size());
 
         //User validations
-        UserViewDto user=userClient.getUserById(dto.getUserId());
-        if (user == null) {
+        ApiResponse<UserViewDto> user=userClient.getUserById(dto.getUserId());
+        if (user.getData() == null && !user.isStatus()) {
             log.error("❌ [ORDER-CREATE] User not found with ID={}", dto.getUserId());
             throw new ResourceNotFoundException("User not registered in the app");
         }
-        log.info("👤 [ORDER-CREATE] User found: {}", user.getEmail());
+
+        if(user.getData().getStatus() != UserStatus.Active){
+            log.error("User {} account was {} ",user.getData().getName(),user.getData().getStatus());
+            throw new BadRequestException("User account is not active");
+        }
+
+        log.info("👤 [ORDER-CREATE] User found: {}", user.getData().getEmail());
 
         //Products validations and create order items
-        List<OrderItem> orderItems=orderItemsCreate(dto.getItems());
+        List<OrderItem> orderItems=orderItemsCreate(dto);
         BigDecimal totalOrderAmount= orderItems.stream()
                 .map(OrderItem::getLineTotal)
                 .reduce(BigDecimal.ZERO,BigDecimal::add);
         Orders order=new Orders();
         order.setOrderCode(orderNumberGenerator.generateOrderNumber());
-        order.setUserId(user.getId());
-        order.setStatus(OrderStatus.PLACED);
+        order.setUserId(user.getData().getId());
+        order.setStatus(OrderStatus.Placed);
         order.setTotalAmount(totalOrderAmount);
+        //Set fk
+        orderItems.forEach(item -> item .setOrder(order));
         order.setItems(orderItems);
 
         Orders placeOrder=orderRepository.save(order);
         return orderMapper.toOrderViewDto(placeOrder);
     }
-    private List<OrderItem> orderItemsCreate(List<OrderItemRequestDto> otRequest){
-        List<OrderItem> orderItems=otRequest.stream()
-                .map((item)->{
-                    ProductViewDto existProduct= productClient.getProduct(item.getProductId());
-                    if(existProduct == null){
+    private List<OrderItem> orderItemsCreate(OrderRequestDto request) {
+
+        return request.getItems().stream()
+                .map(item -> {
+
+                    ApiResponse<ProductViewDto> response = productClient.getProduct(item.getProductId());
+                    ProductViewDto product = response.getData();
+
+                    if (product == null || !response.isStatus()) {
                         throw new ResourceNotFoundException(
-                                String.format("Product %s not found!",item.getProductName()));
+                                "Product not found with ID: " + item.getProductId()
+                        );
                     }
-                    OrderItem orderItem=new OrderItem();
-                    orderItem.setProductId(existProduct.getId());
-                    orderItem.setProductName(existProduct.getName());
+
+                    // 🔥 PRODUCT VALIDATIONS
+                    validateProduct(product, item);
+
+                    // 🔥 Create Order Item
+                    BigDecimal price = product.getPrice();
+                    BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(item.getQuantity()));
+
+                    OrderItem orderItem = new OrderItem();
+                    orderItem.setProductId(product.getId());
+                    orderItem.setProductName(product.getName());
                     orderItem.setQuantity(item.getQuantity());
-                    orderItem.setProductPrice(existProduct.getPrice());
+                    orderItem.setProductPrice(price);
+                    orderItem.setLineTotal(lineTotal);
+                    orderItem.setStatus(OrderItemStatus.Active);
 
-                    BigDecimal price=new BigDecimal(existProduct.getPrice().toString());
-                    BigDecimal totalPrice=price.multiply(new BigDecimal(item.getQuantity()));
-                    orderItem.setLineTotal(totalPrice);
-
-                    orderItem.setStatus(OrderItemStatus.ACTIVE);
                     return orderItem;
                 })
                 .toList();
-        return orderItems;
     }
 
+    private void validateProduct(ProductViewDto product, OrderItemRequestDto reqItem) {
+
+        if (product.getStatus() != ProductStatus.Available) {
+            throw new BadRequestException(
+                    "Product '"+product.getName() +"' is not available"
+            );
+        }
+
+        if (product.getQuantity() < reqItem.getQuantity()) {
+            throw new BadRequestException(
+                    "Product '" + product.getName() +
+                            "' only has " + product.getQuantity() + " quantity in stock"
+            );
+        }
+    }
 
     @Override
     public OrderViewDto updatedOrder(Long orderId, OrderRequestDto dto) {
@@ -111,8 +146,8 @@ public class OrderServiceImp implements OrderService {
         OrderViewDto res = orderMapper.toOrderViewDto(order);
         // Fetch user info from user-service
         log.info("Fetching user data for userId={}", order.getUserId());
-        UserViewDto user = userClient.getUserById(order.getUserId());
-        res.setUser(user);
+        ApiResponse<UserViewDto> user = userClient.getUserById(order.getUserId());
+        res.setUser(user.getData());
         return res;
     }
 
@@ -168,7 +203,7 @@ public class OrderServiceImp implements OrderService {
     private UserViewDto fetchUserSafely(Long userId) {
         try {
             log.info("🟢 [ORDER→USER-SERVICE] Fetching userId={}", userId);
-            return userClient.getUserById(userId);
+            return userClient.getUserById(userId).getData();
 
         } catch (FeignException.NotFound ex) {
             log.warn("⚠️ [USER-NOT-FOUND] userId={} does not exist", userId);

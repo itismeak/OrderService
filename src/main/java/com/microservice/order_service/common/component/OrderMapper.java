@@ -1,5 +1,7 @@
 package com.microservice.order_service.common.component;
 
+import com.microservice.order_service.common.client.ProductClient;
+import com.microservice.order_service.common.client.UserClient;
 import com.microservice.order_service.common.dto.*;
 import com.microservice.order_service.module.order.entity.OrderItem;
 import com.microservice.order_service.module.order.entity.Orders;
@@ -14,9 +16,15 @@ import java.util.List;
 public class OrderMapper {
 
     private final ModelMapper modelMapper;
+    private final UserClient userClient;
+    private final ProductClient productClient;
 
-    public OrderMapper(ModelMapper modelMapper){
+    public OrderMapper(ModelMapper modelMapper,
+                       UserClient userClient,
+                       ProductClient productClient){
         this.modelMapper = modelMapper;
+        this.userClient=userClient;
+        this.productClient=productClient;
     }
 
     // Convert DTO → OrderItem (NO order yet)
@@ -62,6 +70,7 @@ public class OrderMapper {
         return modelMapper.map(entity, OrderItemViewDto.class);
     }
 
+
     // Convert Order → DTO (handles LAZY loading)
     public OrderViewDto toOrderViewDto(Orders order){
         log.info("Mapping Order entity to OrderViewDto. orderId={}, orderCode={}",
@@ -75,19 +84,11 @@ public class OrderMapper {
                 .toList();
 
         dto.setItems(itemsDto);
-
+        UserViewDto userViewDto= userClient.getUserById(order.getUserId()).getData();
+        dto.setUser(userViewDto);
         log.info("Mapped OrderViewDto: orderId={}, items={}",
                 dto.getId(), dto.getItems().size());
 
         return dto;
     }
-
-//    public OrderItem toOrderItem(ProductViewDto productViewDto,OrderItemRequestDto requestDto){
-//        OrderItem orderItem=new OrderItem();
-//        orderItem.setProductId(productViewDto.getId());
-//        orderItem.setProductName(productViewDto.getName());
-//        orderItem.setProductPrice(productViewDto.getPrice());
-//        orderItem.setQuantity(requestDto.getQuantity());
-//        return orderItem;
-//    }
 }

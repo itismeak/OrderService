@@ -6,8 +6,6 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Data
-@Getter
-@Setter
 public class OrderItemRequestDto {
 
     @NotNull(message = "Product ID is required")
