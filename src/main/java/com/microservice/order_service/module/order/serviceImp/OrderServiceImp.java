@@ -129,10 +129,32 @@ public class OrderServiceImp implements OrderService {
     }
 
     @Override
-    public OrderViewDto updatedOrder(Long orderId, OrderRequestDto dto) {
+    public OrderViewDto updatedOrder(Long orderId, OrderUpdateRequestDto dto) {
+        log.info("[UPDATE-ORDER] Updated order details for orderId={} ",orderId);
+        Orders existOrder=orderRepository.findById(orderId)
+                .orElseThrow(()->{
+                    log.error("[UPDATE-ORDER] orderId={} not found",orderId);
+                    return new ResourceNotFoundException("Order details not found");
+                });
+        UserViewDto userViewDto=userClient.getUserById(dto.getUserId()).getData();
+        if(userViewDto == null){
+            log.error("[UPDATE-ORDER] User id {} not found",dto.getUserId());
+            throw new  ResourceNotFoundException("User not registered in the app");
+        }
+        if(userViewDto.getStatus() != UserStatus.Active){
+            log.error("[UPDATE-ORDER] Order details updated request given user {} status was {}",userViewDto.getName(),
+                    userViewDto.getStatus());
+            throw new ResourceNotFoundException("User account is not active");
+        }
+
+
         return null;
     }
+    private OrderItem updateOrderItems(List<OrderItemUpdateRequestDto> request){
 
+
+        return null;
+    }
     @Override
     public OrderViewDto getOrderById(Long orderId) {
         log.info("Fetching order details for orderId={}", orderId);

@@ -3,6 +3,7 @@ package com.microservice.order_service.common.security;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microservice.order_service.common.constants.AppConstant;
 import com.microservice.order_service.common.dto.ApiResponse;
+import com.microservice.order_service.common.dto.CurrentUser;
 import com.microservice.order_service.common.dto.ErrorDetail;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -70,8 +71,20 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             String email = claims.getSubject();
             Object roleObj = claims.get("role");
 
-            List<SimpleGrantedAuthority> authorities = extractAuthorities(roleObj);
+            Long userId = claims.get("userId", Long.class);
+            String name = claims.get("name", String.class);
+            String role = claims.get("role", String.class);
 
+            //List<SimpleGrantedAuthority> authorities = extractAuthorities(roleObj);
+            List<SimpleGrantedAuthority> authorities =
+                    List.of(new SimpleGrantedAuthority(role));
+            // Build CurrentUser object
+            CurrentUser currentUser = new CurrentUser(
+                    userId,
+                    email,
+                    name,
+                    role
+            );
             UsernamePasswordAuthenticationToken auth =
                     new UsernamePasswordAuthenticationToken(email, null, authorities);
 

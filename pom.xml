@@ -8,7 +8,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.4.3</version>
+		<version>3.5.7</version>
 	</parent>
 
 	<groupId>com.microservice</groupId>
@@ -17,10 +17,13 @@
 
 	<properties>
 		<java.version>17</java.version>
-		<spring-cloud.version>2024.0.0</spring-cloud.version>
+<!--		<spring-cloud.version>2024.0.0</spring-cloud.version>-->
+		<!--  For spring cloud eureka server - step 1 -->
+		<spring-cloud.version>2025.0.0</spring-cloud.version>
 	</properties>
 
 	<!-- Spring Cloud BOM import -->
+	<!--  For spring cloud eureka server - step 2 -->
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
@@ -129,6 +132,12 @@
 			<scope>test</scope>
 		</dependency>
 
+		<!-- Eureka Client -->
+		<!--  For spring cloud eureka server - step 3 -->
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+		</dependency>
 	</dependencies>
 
 	<build>
