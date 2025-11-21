@@ -13,6 +13,7 @@ import com.microservice.order_service.common.exceptions.BadRequestException;
 import com.microservice.order_service.common.exceptions.ResourceNotFoundException;
 import com.microservice.order_service.module.order.entity.OrderItem;
 import com.microservice.order_service.module.order.entity.Orders;
+import com.microservice.order_service.module.order.repository.OrderItemRepository;
 import com.microservice.order_service.module.order.repository.OrderRepository;
 import com.microservice.order_service.module.order.service.OrderService;
 import feign.FeignException;
@@ -36,6 +37,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class OrderServiceImp implements OrderService {
     private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
     private final OrderNumberGenerator orderNumberGenerator;
     private final OrderMapper orderMapper;
     private final UserClient userClient;
@@ -93,7 +95,7 @@ public class OrderServiceImp implements OrderService {
                     }
 
                     // 🔥 PRODUCT VALIDATIONS
-                    validateProduct(product, item);
+                    validateProduct(product, item.getQuantity());
 
                     // 🔥 Create Order Item
                     BigDecimal price = product.getPrice();
@@ -112,7 +114,7 @@ public class OrderServiceImp implements OrderService {
                 .toList();
     }
 
-    private void validateProduct(ProductViewDto product, OrderItemRequestDto reqItem) {
+    private void validateProduct(ProductViewDto product, int reqItemQuantity) {
 
         if (product.getStatus() != ProductStatus.Available) {
             throw new BadRequestException(
@@ -120,7 +122,7 @@ public class OrderServiceImp implements OrderService {
             );
         }
 
-        if (product.getQuantity() < reqItem.getQuantity()) {
+        if (product.getQuantity() < reqItemQuantity) {
             throw new BadRequestException(
                     "Product '" + product.getName() +
                             "' only has " + product.getQuantity() + " quantity in stock"
@@ -129,6 +131,7 @@ public class OrderServiceImp implements OrderService {
     }
 
     @Override
+    @Transactional
     public OrderViewDto updatedOrder(Long orderId, OrderUpdateRequestDto dto) {
         log.info("[UPDATE-ORDER] Updated order details for orderId={} ",orderId);
         Orders existOrder=orderRepository.findById(orderId)
@@ -150,10 +153,35 @@ public class OrderServiceImp implements OrderService {
 
         return null;
     }
-    private OrderItem updateOrderItems(List<OrderItemUpdateRequestDto> request){
+    private List<OrderItem> updateOrderItems(List<OrderItemUpdateRequestDto> request){
+        if(request.isEmpty()){
+            throw new BadRequestException("Product items nothing selected");
+        }
+        return request.stream()
+                .map(item->{
+                    OrderItem orderItem=orderItemRepository.findById(item.getId())
+                            .orElseThrow(()->{
+                                log.error("Order item for update {} - {}  not found ",
+                                        item.getId(),item.getProductName());
+                                return  new ResourceNotFoundException("Order Items "+item.getProductName()+" not found");
+                            });
+                    ProductViewDto product=productClient.getProduct(item.getProductId()).getData();
 
-
-        return null;
+                    if (product == null) {
+                        throw new ResourceNotFoundException(
+                                "Product not found with ID: " + item.getProductId()
+                        );
+                    }
+                    validateProduct(product,item.getQuantity());
+                    BigDecimal price = product.getPrice();
+                    BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(item.getQuantity()));
+                    orderItem.setQuantity(item.getQuantity());
+                    orderItem.setProductPrice(price);
+                    orderItem.setLineTotal(lineTotal);
+                    orderItem.setStatus(item.getStatus());
+                    return orderItem;
+                })
+                .toList();
     }
     @Override
     public OrderViewDto getOrderById(Long orderId) {

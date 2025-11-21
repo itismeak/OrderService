@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 
 // Name: microservice name from discovery server (Eureka or Consul)
 // URL: only needed if not using service registry
-@FeignClient(name = "user-service", url = "http://localhost:8082",
+@FeignClient(name = "user-service",
 configuration = FeignClientConfig.class)
 public interface UserClient {
     @GetMapping(AppConstant.apiVersion+"/user/getUser/{id}")
