@@ -1,5 +1,6 @@
 package com.microservice.order_service.common.client;
 
+import com.microservice.order_service.common.component.UserClientFallback;
 import com.microservice.order_service.common.config.FeignClientConfig;
 import com.microservice.order_service.common.constants.AppConstant;
 import com.microservice.order_service.common.dto.ApiResponse;
@@ -11,7 +12,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 // Name: microservice name from discovery server (Eureka or Consul)
 // URL: only needed if not using service registry
 @FeignClient(name = "user-service",
-configuration = FeignClientConfig.class)
+configuration = FeignClientConfig.class,
+        fallback = UserClientFallback.class)
 public interface UserClient {
     @GetMapping(AppConstant.apiVersion+"/user/getUser/{id}")
     ApiResponse<UserViewDto> getUserById(@PathVariable("id") Long id);

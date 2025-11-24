@@ -5,6 +5,7 @@ import com.microservice.order_service.common.client.UserClient;
 import com.microservice.order_service.common.dto.*;
 import com.microservice.order_service.module.order.entity.OrderItem;
 import com.microservice.order_service.module.order.entity.Orders;
+import com.microservice.order_service.module.order.service.ExternalClientService;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Component;
@@ -16,15 +17,14 @@ import java.util.List;
 public class OrderMapper {
 
     private final ModelMapper modelMapper;
-    private final UserClient userClient;
-    private final ProductClient productClient;
+    private final ExternalClientService externalClientService;
 
     public OrderMapper(ModelMapper modelMapper,
                        UserClient userClient,
-                       ProductClient productClient){
+                       ProductClient productClient,
+                       ExternalClientService externalClientService){
         this.modelMapper = modelMapper;
-        this.userClient=userClient;
-        this.productClient=productClient;
+        this.externalClientService=externalClientService;
     }
 
     // Convert DTO → OrderItem (NO order yet)
@@ -84,7 +84,7 @@ public class OrderMapper {
                 .toList();
 
         dto.setItems(itemsDto);
-        UserViewDto userViewDto= userClient.getUserById(order.getUserId()).getData();
+        UserViewDto userViewDto= externalClientService.getUserSafe(order.getUserId()).getData();
         dto.setUser(userViewDto);
         log.info("Mapped OrderViewDto: orderId={}, items={}",
                 dto.getId(), dto.getItems().size());

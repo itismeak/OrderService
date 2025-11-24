@@ -15,6 +15,7 @@ import com.microservice.order_service.module.order.entity.OrderItem;
 import com.microservice.order_service.module.order.entity.Orders;
 import com.microservice.order_service.module.order.repository.OrderItemRepository;
 import com.microservice.order_service.module.order.repository.OrderRepository;
+import com.microservice.order_service.module.order.service.ExternalClientService;
 import com.microservice.order_service.module.order.service.OrderService;
 import feign.FeignException;
 import jakarta.transaction.Transactional;
@@ -40,8 +41,8 @@ public class OrderServiceImp implements OrderService {
     private final OrderItemRepository orderItemRepository;
     private final OrderNumberGenerator orderNumberGenerator;
     private final OrderMapper orderMapper;
-    private final UserClient userClient;
-    private final ProductClient productClient;
+    private final ExternalClientService externalClientService;
+
 
     @Override
     @Transactional
@@ -50,10 +51,10 @@ public class OrderServiceImp implements OrderService {
                 dto.getUserId(), dto.getItems().size());
 
         //User validations
-        ApiResponse<UserViewDto> user=userClient.getUserById(dto.getUserId());
+        ApiResponse<UserViewDto> user=externalClientService.getUserSafe(dto.getUserId());
         if (user.getData() == null && !user.isStatus()) {
             log.error("❌ [ORDER-CREATE] User not found with ID={}", dto.getUserId());
-            throw new ResourceNotFoundException("User not registered in the app");
+            throw new ResourceNotFoundException("User service unavailable or user not found");
         }
 
         if(user.getData().getStatus() != UserStatus.Active){
@@ -85,12 +86,12 @@ public class OrderServiceImp implements OrderService {
         return request.getItems().stream()
                 .map(item -> {
 
-                    ApiResponse<ProductViewDto> response = productClient.getProduct(item.getProductId());
+                    ApiResponse<ProductViewDto> response = externalClientService.getProductSafe(item.getProductId());
                     ProductViewDto product = response.getData();
 
                     if (product == null || !response.isStatus()) {
                         throw new ResourceNotFoundException(
-                                "Product not found with ID: " + item.getProductId()
+                                "Product not found or product-service unavailable"
                         );
                     }
 
@@ -139,10 +140,10 @@ public class OrderServiceImp implements OrderService {
                     log.error("[UPDATE-ORDER] orderId={} not found",orderId);
                     return new ResourceNotFoundException("Order details not found");
                 });
-        UserViewDto userViewDto=userClient.getUserById(dto.getUserId()).getData();
+        UserViewDto userViewDto=externalClientService.getUserSafe(dto.getUserId()).getData();
         if(userViewDto == null){
             log.error("[UPDATE-ORDER] User id {} not found",dto.getUserId());
-            throw new  ResourceNotFoundException("User not registered in the app");
+            throw new  ResourceNotFoundException("User not registered in the app or User service down");
         }
         if(userViewDto.getStatus() != UserStatus.Active){
             log.error("[UPDATE-ORDER] Order details updated request given user {} status was {}",userViewDto.getName(),
@@ -165,11 +166,11 @@ public class OrderServiceImp implements OrderService {
                                         item.getId(),item.getProductName());
                                 return  new ResourceNotFoundException("Order Items "+item.getProductName()+" not found");
                             });
-                    ProductViewDto product=productClient.getProduct(item.getProductId()).getData();
+                    ProductViewDto product=externalClientService.getProductSafe(item.getProductId()).getData();
 
                     if (product == null) {
                         throw new ResourceNotFoundException(
-                                "Product not found with ID: " + item.getProductId()
+                                "Product not found or product-service unavailable"
                         );
                     }
                     validateProduct(product,item.getQuantity());
@@ -196,7 +197,7 @@ public class OrderServiceImp implements OrderService {
         OrderViewDto res = orderMapper.toOrderViewDto(order);
         // Fetch user info from user-service
         log.info("Fetching user data for userId={}", order.getUserId());
-        ApiResponse<UserViewDto> user = userClient.getUserById(order.getUserId());
+        ApiResponse<UserViewDto> user = externalClientService.getUserSafe(order.getUserId());
         res.setUser(user.getData());
         return res;
     }
@@ -253,7 +254,7 @@ public class OrderServiceImp implements OrderService {
     private UserViewDto fetchUserSafely(Long userId) {
         try {
             log.info("🟢 [ORDER→USER-SERVICE] Fetching userId={}", userId);
-            return userClient.getUserById(userId).getData();
+            return externalClientService.getUserSafe(userId).getData();
 
         } catch (FeignException.NotFound ex) {
             log.warn("⚠️ [USER-NOT-FOUND] userId={} does not exist", userId);
