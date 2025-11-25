@@ -47,13 +47,13 @@ public class OrderServiceImp implements OrderService {
     @Override
     @Transactional
     public OrderViewDto saveOrder(OrderRequestDto dto) {
-        log.info("🟢 [ORDER-CREATE] Request received for userId={} | items={}",
+        log.info("🟢 Request received for userId={} | items={}",
                 dto.getUserId(), dto.getItems().size());
 
         //User validations
         ApiResponse<UserViewDto> user=externalClientService.getUserSafe(dto.getUserId());
         if (user.getData() == null && !user.isStatus()) {
-            log.error("❌ [ORDER-CREATE] User not found with ID={}", dto.getUserId());
+            log.error("❌ User not found with ID={}", dto.getUserId());
             throw new ResourceNotFoundException("User service unavailable or user not found");
         }
 
@@ -62,7 +62,7 @@ public class OrderServiceImp implements OrderService {
             throw new BadRequestException("User account is not active");
         }
 
-        log.info("👤 [ORDER-CREATE] User found: {}", user.getData().getEmail());
+        log.info("👤 User found: {}", user.getData().getEmail());
 
         //Products validations and create order items
         List<OrderItem> orderItems=orderItemsCreate(dto);
@@ -95,10 +95,10 @@ public class OrderServiceImp implements OrderService {
                         );
                     }
 
-                    // 🔥 PRODUCT VALIDATIONS
+                    // PRODUCT VALIDATIONS
                     validateProduct(product, item.getQuantity());
 
-                    // 🔥 Create Order Item
+                    // Create Order Item
                     BigDecimal price = product.getPrice();
                     BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(item.getQuantity()));
 
@@ -134,25 +134,37 @@ public class OrderServiceImp implements OrderService {
     @Override
     @Transactional
     public OrderViewDto updatedOrder(Long orderId, OrderUpdateRequestDto dto) {
-        log.info("[UPDATE-ORDER] Updated order details for orderId={} ",orderId);
+        log.info("Updated order details for orderId={} ",orderId);
         Orders existOrder=orderRepository.findById(orderId)
                 .orElseThrow(()->{
-                    log.error("[UPDATE-ORDER] orderId={} not found",orderId);
+                    log.error("orderId={} not found",orderId);
                     return new ResourceNotFoundException("Order details not found");
                 });
         UserViewDto userViewDto=externalClientService.getUserSafe(dto.getUserId()).getData();
         if(userViewDto == null){
-            log.error("[UPDATE-ORDER] User id {} not found",dto.getUserId());
+            log.error("User id {} not found",dto.getUserId());
             throw new  ResourceNotFoundException("User not registered in the app or User service down");
         }
         if(userViewDto.getStatus() != UserStatus.Active){
-            log.error("[UPDATE-ORDER] Order details updated request given user {} status was {}",userViewDto.getName(),
+            log.error("Order details updated request given user {} status was {}",userViewDto.getName(),
                     userViewDto.getStatus());
             throw new ResourceNotFoundException("User account is not active");
         }
+        List<OrderItem> updatedOrderItems=updateOrderItems(dto.getItems());
+        boolean allCancelled = updatedOrderItems.stream()
+                .allMatch(item -> item.getStatus() == OrderItemStatus.Cancelled);
+        BigDecimal totalOrderAmount= updatedOrderItems.stream()
+                .map(OrderItem::getLineTotal)
+                .reduce(BigDecimal.ZERO,BigDecimal::add);
+        Orders order=new Orders();
+        order.setStatus(allCancelled?OrderStatus.Cancelled:OrderStatus.Placed);
+        order.setTotalAmount(totalOrderAmount);
+        //Set fk
+        updatedOrderItems.forEach(item -> item .setOrder(order));
+        order.setItems(updatedOrderItems);
 
-
-        return null;
+        Orders placeOrder=orderRepository.save(order);
+        return orderMapper.toOrderViewDto(placeOrder);
     }
     private List<OrderItem> updateOrderItems(List<OrderItemUpdateRequestDto> request){
         if(request.isEmpty()){
