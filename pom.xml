@@ -154,6 +154,11 @@
 			<groupId>io.github.resilience4j</groupId>
 			<artifactId>resilience4j-feign</artifactId>
 		</dependency>
+		<!-- Kafka -->
+		<dependency>
+			<groupId>org.springframework.kafka</groupId>
+			<artifactId>spring-kafka</artifactId>
+		</dependency>
 
 	</dependencies>
 

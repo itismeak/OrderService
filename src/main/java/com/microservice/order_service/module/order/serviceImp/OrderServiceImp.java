@@ -1,6 +1,7 @@
 package com.microservice.order_service.module.order.serviceImp;
 
 import com.microservice.order_service.common.client.ExternalClientService;
+import com.microservice.order_service.common.client.producer.OrderEventProducer;
 import com.microservice.order_service.common.component.OrderMapper;
 import com.microservice.order_service.common.component.OrderNumberGenerator;
 import com.microservice.order_service.common.dto.*;
@@ -38,7 +39,7 @@ public class OrderServiceImp implements OrderService {
     private final OrderNumberGenerator orderNumberGenerator;
     private final OrderMapper orderMapper;
     private final ExternalClientService externalClientService;
-
+    private final OrderEventProducer orderEventProducer;
 
     @Override
     @Transactional
@@ -75,6 +76,15 @@ public class OrderServiceImp implements OrderService {
         order.setItems(orderItems);
 
         Orders placeOrder=orderRepository.save(order);
+       // After saving order, publish Kafka events to each item
+        order.getItems().forEach(item -> {
+            OrderSaveEvent event = new OrderSaveEvent(
+                    placeOrder.getId(),
+                    item.getProductId(),
+                    item.getQuantity()
+            );
+            orderEventProducer.sendOrderEvent(event);
+        });
         return orderMapper.toOrderViewDto(placeOrder);
     }
     private List<OrderItem> orderItemsCreate(OrderRequestDto request) {
