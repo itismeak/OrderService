@@ -1,4 +1,4 @@
-package com.microservice.order_service.module.order.service;
+package com.microservice.order_service.common.client;
 
 import com.microservice.order_service.common.dto.ApiResponse;
 import com.microservice.order_service.common.dto.ProductViewDto;

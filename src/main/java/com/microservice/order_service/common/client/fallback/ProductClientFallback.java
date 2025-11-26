@@ -1,4 +1,4 @@
-package com.microservice.order_service.common.component;
+package com.microservice.order_service.common.client.fallback;
 
 import com.microservice.order_service.common.client.ProductClient;
 import com.microservice.order_service.common.dto.ApiResponse;

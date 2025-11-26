@@ -1,6 +1,6 @@
 package com.microservice.order_service.common.client;
 
-import com.microservice.order_service.common.component.UserClientFallback;
+import com.microservice.order_service.common.client.fallback.UserClientFallback;
 import com.microservice.order_service.common.config.FeignClientConfig;
 import com.microservice.order_service.common.constants.AppConstant;
 import com.microservice.order_service.common.dto.ApiResponse;

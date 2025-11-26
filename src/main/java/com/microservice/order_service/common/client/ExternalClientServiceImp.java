@@ -1,11 +1,8 @@
-package com.microservice.order_service.module.order.serviceImp;
+package com.microservice.order_service.common.client;
 
-import com.microservice.order_service.common.client.ProductClient;
-import com.microservice.order_service.common.client.UserClient;
 import com.microservice.order_service.common.dto.ApiResponse;
 import com.microservice.order_service.common.dto.ProductViewDto;
 import com.microservice.order_service.common.dto.UserViewDto;
-import com.microservice.order_service.module.order.service.ExternalClientService;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

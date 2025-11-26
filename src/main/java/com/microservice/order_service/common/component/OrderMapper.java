@@ -1,11 +1,11 @@
 package com.microservice.order_service.common.component;
 
+import com.microservice.order_service.common.client.ExternalClientService;
 import com.microservice.order_service.common.client.ProductClient;
 import com.microservice.order_service.common.client.UserClient;
 import com.microservice.order_service.common.dto.*;
 import com.microservice.order_service.module.order.entity.OrderItem;
 import com.microservice.order_service.module.order.entity.Orders;
-import com.microservice.order_service.module.order.service.ExternalClientService;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Component;

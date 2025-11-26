@@ -1,7 +1,6 @@
 package com.microservice.order_service.module.order.serviceImp;
 
-import com.microservice.order_service.common.client.ProductClient;
-import com.microservice.order_service.common.client.UserClient;
+import com.microservice.order_service.common.client.ExternalClientService;
 import com.microservice.order_service.common.component.OrderMapper;
 import com.microservice.order_service.common.component.OrderNumberGenerator;
 import com.microservice.order_service.common.dto.*;
@@ -15,7 +14,6 @@ import com.microservice.order_service.module.order.entity.OrderItem;
 import com.microservice.order_service.module.order.entity.Orders;
 import com.microservice.order_service.module.order.repository.OrderItemRepository;
 import com.microservice.order_service.module.order.repository.OrderRepository;
-import com.microservice.order_service.module.order.service.ExternalClientService;
 import com.microservice.order_service.module.order.service.OrderService;
 import feign.FeignException;
 import jakarta.transaction.Transactional;
@@ -28,10 +26,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
