@@ -82,10 +82,12 @@ public class OrderServiceImp implements OrderService {
             OrderSaveEvent event = new OrderSaveEvent(
                     placeOrder.getId(),
                     item.getProductId(),
-                    item.getQuantity()
+                    item.getQuantity() != null ? item.getQuantity() : 0
             );
             orderEventProducer.sendOrderEvent(event);
         });
+
+
         return orderMapper.toOrderViewDto(placeOrder);
     }
     private List<OrderItem> orderItemsCreate(OrderRequestDto request) {

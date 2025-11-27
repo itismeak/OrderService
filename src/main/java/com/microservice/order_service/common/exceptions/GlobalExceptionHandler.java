@@ -22,7 +22,7 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // 1️⃣ Handle @Valid validation errors
+    // Handle @Valid validation errors
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<?>> handleValidationException(MethodArgumentNotValidException ex) {
 
@@ -41,7 +41,7 @@ public class GlobalExceptionHandler {
         );
     }
 
-    // 2️⃣ Handle business logic errors safely
+    // Handle business logic errors safely
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ApiResponse<?>> handleRuntimeException(RuntimeException ex) {
         log.warn("Runtime exception: {}", ex.getMessage());
@@ -53,7 +53,7 @@ public class GlobalExceptionHandler {
         );
     }
 
-    // 3️⃣ Handle Feign client errors (User/Product service failures)
+    // Handle Feign client errors (User/Product service failures)
     @ExceptionHandler(FeignException.class)
     public ResponseEntity<ApiResponse<?>> handleFeignException(FeignException ex) {
 
@@ -72,7 +72,7 @@ public class GlobalExceptionHandler {
         );
     }
 
-    // 4️⃣ Catch-all handler for unknown exceptions
+    // Catch-all handler for unknown exceptions
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<?>> handleGlobalException(Exception ex) {
         log.error("Unhandled exception occurred: {}", ex.getMessage(), ex);
@@ -84,7 +84,7 @@ public class GlobalExceptionHandler {
         );
     }
 
-    // 5️⃣ Handle ResourceNotFoundException (Resource not found)
+    // Handle ResourceNotFoundException (Resource not found)
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponse<?>> handleResourceNotFoundException(ResourceNotFoundException ex) {
         log.warn("Resource not found: {}", ex.getMessage());
@@ -128,13 +128,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status).body(response);
     }
 
-    // 🔹 Clean internal exception messages
+    // Clean internal exception messages
     private String safeMessage(String msg) {
         if (msg == null) return "Unexpected error occurred";
         return msg.replaceAll("[\"]", "").trim();
     }
 
-    // 🔹 Extract Feign clean message
+    // Extract Feign clean message
     private String extractFeignMessage(FeignException ex) {
         String msg = ex.contentUTF8();
         if (msg == null || msg.isEmpty()) {

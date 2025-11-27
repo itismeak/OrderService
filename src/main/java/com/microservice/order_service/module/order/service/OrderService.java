@@ -11,7 +11,7 @@ public interface OrderService {
     OrderViewDto saveOrder(OrderRequestDto dto) throws BadRequestException;
     OrderViewDto updatedOrder(Long orderId, OrderUpdateRequestDto dto);
     OrderViewDto getOrderById(Long orderId);
-    public Page<OrderViewDto> getAll(String productName,
+    Page<OrderViewDto> getAll(String productName,
                                      OrderStatus status,
                                      int page,
                                      int size,
