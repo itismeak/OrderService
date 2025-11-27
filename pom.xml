@@ -159,7 +159,12 @@
 			<groupId>org.springframework.kafka</groupId>
 			<artifactId>spring-kafka</artifactId>
 		</dependency>
-
+		<!-- common custom dto package for msg brokers -->
+		<dependency>
+			<groupId>org.events</groupId>
+			<artifactId>common-events</artifactId>
+			<version>1.0-SNAPSHOT</version>
+		</dependency>
 	</dependencies>
 
 	<build>

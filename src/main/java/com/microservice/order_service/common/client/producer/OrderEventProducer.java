@@ -1,8 +1,8 @@
 package com.microservice.order_service.common.client.producer;
 
-import com.microservice.order_service.common.dto.OrderSaveEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.events.OrderSaveEvent;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
